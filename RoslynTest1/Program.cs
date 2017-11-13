@@ -23,6 +23,9 @@ NOTE: This project is based on the code posted by "Nick Polyak" at stackoverflow
 
 I did not make this code, I only did a visual stuio 2017 project to contain the original code submmited by "Nick Polyak" at stackoverflow in order to test it, and to share with him in order to ask for help because I can not make it work.
 
+Thanks to Nick, now the code is working perfectly!!
+I leave it here in case it could be useful for someone else.
+
 #######################################################################################################################################
 */
 
@@ -39,6 +42,15 @@ namespace RoslynTest1
             public static readonly CSharpCompilationOptions ReleaseExe = new CSharpCompilationOptions(OutputKind.ConsoleApplication, optimizationLevel: OptimizationLevel.Release);
             public static readonly CSharpCompilationOptions ReleaseModule = new CSharpCompilationOptions(OutputKind.NetModule, optimizationLevel: OptimizationLevel.Release);
         }
+        /*
+        public static class TestOptions
+        {
+            public static readonly CSharpCompilationOptions ReleaseExe =
+                new CSharpCompilationOptions(OutputKind.ConsoleApplication, allowUnsafe: true);
+            public static readonly CSharpCompilationOptions ReleaseModule =
+                new CSharpCompilationOptions(OutputKind.NetModule, allowUnsafe: true);
+        }
+        */
 
 
         public static void Main()
@@ -48,61 +60,23 @@ namespace RoslynTest1
                 var s1 = @"public class A {internal object o1 = new { hello = 1, world = 2 }; public static string M1() {    return ""Hello, "";}}";
                 var s2 = @"public class B : A{internal object o2 = new { hello = 1, world = 2 };public static string M2(){    return ""world!"";}}";
                 var s3 = @"public class Program{public static void Main(){    System.Console.Write(A.M1());    System.Console.WriteLine(B.M2());}}";
+
                 var comp1 = CreateCompilationWithMscorlib("a1", s1, compilerOptions: TestOptions.ReleaseModule);
-                var ref1 = comp1.EmitToImageReference();
+                byte[] comp1Result = comp1.EmitToArray();
+                var ref1 = comp1Result.EmitToImageReference(OutputKind.NetModule, comp1.SourceModule.Name);
 
                 var comp2 = CreateCompilationWithMscorlib("a2", s2, compilerOptions: TestOptions.ReleaseModule, references: new[] { ref1 });
-                var ref2 = comp2.EmitToImageReference();
+                byte[] comp2Result = comp2.EmitToArray();
+                var ref2 = comp2Result.EmitToImageReference(OutputKind.NetModule, comp2.SourceModule.Name);
 
                 var comp3 = CreateCompilationWithMscorlib("a3", s3, compilerOptions: TestOptions.ReleaseExe.WithModuleName("C"), references: new[] { ref1, ref2 });
 
-                var ref3 = comp3.EmitToImageReference();
-
-                IEnumerable<byte> result = comp3.EmitToArray();
+                byte[] result = comp3.EmitToArray();
 
                 Assembly assembly = Assembly.Load(result.ToArray());
 
-
-
-
-
-
-                // NOTE: This snippet is added by me an is not in the original code.
-                // If this snippet is commented the program fails with the error:
-                //
-                //
-                // System.Reflection.TargetInvocationException: Se produjo una excepción en el destino de la invocación. --->System.IO.FileNotFoundException: No se puede cargar el archivo o ensamblado 'a1.netmodule' ni una de sus dependencias.El sistema no puede encontrar el archivo especificado.
-                // en Program.Main()
-                // --- Fin del seguimiento de la pila de la excepción interna-- -
-                // en System.RuntimeMethodHandle.InvokeMethod(Object target, Object[] arguments, Signature sig, Boolean constructor)
-                // en System.Reflection.RuntimeMethodInfo.UnsafeInvokeInternal(Object obj, Object[] parameters, Object[] arguments)
-                // en System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
-                // en System.Reflection.MethodBase.Invoke(Object obj, Object[] parameters)
-                // en RoslynTest1.Program.Main() en P:\Test\RoslynTest1\RoslynTest1\Program.cs:línea 116
-                //
-                //
-                // So as it says at stackoverflow, I tried to load the modules "a1" and "a2", but this snippet does not work and the program fails with the error:
-                //
-                //
-                // System.IO.FileLoadException: No se puede cargar el archivo o ensamblado '3072 bytes loaded from a3, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null' ni una de sus dependencias.Error de comprobación del hash del módulo. (Excepción de HRESULT: 0x80131039)
-                // Nombre de archivo: '3072 bytes loaded from a3, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null'--->System.IO.FileLoadException: Error de comprobación del hash del módulo. (Excepción de HRESULT: 0x80131039)
-                // en System.Reflection.RuntimeAssembly.LoadModule(RuntimeAssembly assembly, String moduleName, Byte[] rawModule, Int32 cbModule, Byte[] rawSymbolStore, Int32 cbSymbolStore, ObjectHandleOnStack retModule)
-                // en System.Reflection.RuntimeAssembly.LoadModule(String moduleName, Byte[] rawModule, Byte[] rawSymbolStore)
-                // en System.Reflection.Assembly.LoadModule(String moduleName, Byte[] rawModule)
-                // en RoslynTest1.Program.Main() en P:\Test\RoslynTest1\RoslynTest1\Program.cs:línea 97
-                //
-                /*
-                {
-                    var a1_netmodule_bytes = comp1.EmitToArray().ToArray();
-                    assembly.LoadModule("a1.netmodule", a1_netmodule_bytes);
-
-                    var a2_netmodule_bytes = comp2.EmitToArray().ToArray();
-                    assembly.LoadModule("a2.netmodule", a2_netmodule_bytes);
-                }
-                */
-                
-
-
+                assembly.LoadModule("a1.netmodule", comp1Result.ToArray());
+                assembly.LoadModule("a2.netmodule", comp2Result.ToArray());
 
 
                 Module module = assembly.GetModule("C");
@@ -126,7 +100,7 @@ namespace RoslynTest1
             return ImmutableArray.Create<byte>(stream.ToArray());
         }
 
-        internal static ImmutableArray<byte> EmitToArray
+        internal static byte[] EmitToArray
         (
             this Compilation compilation,
             EmitOptions options = null,
@@ -148,21 +122,22 @@ namespace RoslynTest1
                 manifestResources: null,
                 options: options);
 
-            return stream.ToImmutable();
+            return stream.ToArray();
         }
 
         public static MetadataReference EmitToImageReference(
-            this Compilation comp
+            this byte[] image,
+            OutputKind outputKind,
+            string displayName
         )
         {
-            var image = comp.EmitToArray();
-            if (comp.Options.OutputKind == OutputKind.NetModule)
+            if (outputKind == OutputKind.NetModule)
             {
-                return ModuleMetadata.CreateFromImage(image).GetReference(display: comp.AssemblyName);
+                return ModuleMetadata.CreateFromImage(image).GetReference(display: displayName);
             }
             else
             {
-                return AssemblyMetadata.CreateFromImage(image).GetReference(display: comp.AssemblyName);
+                return AssemblyMetadata.CreateFromImage(image).GetReference(display: displayName);
             }
         }
 
