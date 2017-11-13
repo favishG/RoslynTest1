@@ -7,3 +7,5 @@ I did not make this code, I only did a visual stuio 2017 project to contain the 
 
 Thanks to Nick, now the code is working perfectly!!
 I leave it here in case it could be useful for someone else.
+
+The original code is at https://github.com/npolyak/SimpleRoslynAssembly/tree/master/RoslynTest1
