@@ -9,3 +9,5 @@ Thanks to Nick, now the code is working perfectly!!
 I leave it here in case it could be useful for someone else.
 
 The original code is at https://github.com/npolyak/SimpleRoslynAssembly/tree/master/RoslynTest1
+
+See also the article posted by Nick at codeproject https://www.codeproject.com/Articles/1215168/Using-Roslyn-for-Compiling-Code-into-Separate-Net
